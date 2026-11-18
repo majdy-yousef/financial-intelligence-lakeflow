@@ -3,11 +3,11 @@
 CATALOG = "financial_intelligence"
 BRONZE = f"{CATALOG}.bronze"
 
-USER_AGENT = "admin@email.com"
+USER_AGENT = "Financial Intelligence Data Platform majdy.yousef@portfolio.com"
 
 TAXONOMY = "us-gaap"
 UNIT = "USD"
-YEARS = range(2021, 2026)
+YEARS = range(2024, 2026)
 
 # Duration concepts: full-year periods (CY{year}).
 ANNUAL_TAGS = [

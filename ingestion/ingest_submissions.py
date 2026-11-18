@@ -4,35 +4,49 @@ Runs standalone (`spark` must be in scope), e.g. as its own job task.
 """
 
 import json
+import requests
 from datetime import datetime, timezone
 
 from bronze_schema import SUBMISSIONS_SCHEMA
 from common import BRONZE, USER_AGENT, upsert
-from sec_client import SECClient
+from sec_client import SECClient, SECClientError
 
 
-def ingest_company_submissions(spark, ciks=None, client=None):
+def ingest_company_submissions(spark):
     """Fetch the submissions JSON per company and append one row per company to bronze.
 
     The payload column stores the raw, unmodified JSON string.
 
-    Args:
-        ciks: companies to fetch; defaults to all CIKs in bronze.companies.
+    The companies to fetch are always taken from bronze.companies.
     """
-    if client is None:
-        client = SECClient(user_agent=USER_AGENT)
-    if ciks is None:
-        ciks = [
-            row.cik
-            for row in spark.table(f"{BRONZE}.companies")
-            .select("cik")
-            .distinct()
-            .collect()
-        ]
+    # Build the SEC client with a User-Agent (required by SEC policy).
+    client = SECClient(user_agent=USER_AGENT)
+
+    # Always take the CIKs from bronze.companies (task runs after ingest_companies).
+    ciks = [
+        row.cik
+        for row in spark.table(f"{BRONZE}.companies")
+        .select("cik")
+        .distinct()
+        .collect()
+    ]
+    
+    # One ingestion timestamp for every row of this run.
     ingested_at = datetime.now(timezone.utc)
-    rows = []
+
+    rows = []      # successfully fetched companies -> written to bronze
+    failures = []  # failed CIKs -> only logged, do not abort the run
     for cik in ciks:
-        payload = client.get_company_submissions(cik)
+        try:
+            # Fetch the company's submissions JSON from data.sec.gov.
+            payload = client.get_company_submissions(cik)
+
+        except (requests.HTTPError, SECClientError) as exc:
+            # A single failing CIK no longer aborts the remaining ones.
+            failures.append((int(cik), str(exc)))
+            continue
+
+        # One row per company: cik, raw JSON payload, timestamp, source URL.
         rows.append(
             (
                 int(cik),
@@ -42,6 +56,13 @@ def ingest_company_submissions(spark, ciks=None, client=None):
             )
         )
     df = spark.createDataFrame(rows, schema=SUBMISSIONS_SCHEMA)
+    if failures:
+        # Log failed fetches to the task output; retried on the next run.
+        print(f"Skipped {len(failures)} CIKs after errors: {[f[0] for f in failures]}")
+        for cik, err in failures:
+            print(f"  cik={cik}: {err}")
+            
+    # Idempotent upsert into bronze.company_submissions (MERGE on cik).
     return upsert(spark, df, f"{BRONZE}.company_submissions", "t.cik = s.cik")
 
 

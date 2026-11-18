@@ -9,7 +9,7 @@ import time
 
 import requests
 
-_MAX_ATTEMPTS = 4
+_MAX_ATTEMPTS = 6
 _TIMEOUT_SEC = 30
 _RETRYABLE_STATUSES = (403, 429, 500, 502, 503)
 
