@@ -35,14 +35,19 @@ def _pick_annual_value(table, value_alias, duration):
         )
     else:
         # Instant facts: balance-sheet value at the fiscal-year-end date.
+        # Instant facts: balance-sheet value at the fiscal-year-end date.
         facts = facts.filter(F.col("period_end").isNotNull())
 
+    # Duplicates and amended reports: the latest filing wins
+    # (filed desc, tie-break accn desc, then value desc for determinism).
     # Duplicates and amended reports: the latest filing wins
     # (filed desc, tie-break accn desc, then value desc for determinism).
     latest_filing = Window.partitionBy("cik", "fiscal_year").orderBy(
         F.col("filed").desc(), F.col("accn").desc(), F.col("value").desc()
     )
     return (
+        # Duration facts: only complete fiscal years (300-400 days);
+        # fiscal_year = year(period_end), never the XBRL fy label.
         facts.withColumn("_rank", F.row_number().over(latest_filing))
         .filter(F.col("_rank") == 1)
         .select(
@@ -72,6 +77,15 @@ def _pick_annual_value(table, value_alias, duration):
         liabilities DOUBLE,
         equity DOUBLE
     """,
+)
+@dp.expect_or_drop(
+    "valid_balance_sheet",
+    """
+    assets IS NULL
+    OR liabilities IS NULL
+    OR equity IS NULL
+    OR (assets - liabilities - equity) = 0
+    """
 )
 def company_financial_summary():
     companies = spark.read.table(f"{_SILVER}.companies").select(
