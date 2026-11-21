@@ -2,7 +2,7 @@
 
 ![Python](https://img.shields.io/badge/python-3.12-blue?logo=python&logoColor=white)
 
-An end-to-end data engineering pipeline that ingests financial data from the SEC EDGAR API into a medallion architecture (Bronze → Silver → Gold) on Databricks, and produces clean, audited annual financial summaries and financial ratios per company and fiscal year (2021–2025).
+An end-to-end data engineering pipeline that ingests financial data from the SEC EDGAR API into a medallion architecture (Bronze → Silver → Gold) on Databricks, and produces clean, validated annual financial summaries and financial ratios per company and fiscal year (2021–2025).
 
 The project is implemented with **PySpark**, **Lakeflow Spark Declarative Pipelines** (materialized views with declarative dependencies), **Lakeflow Jobs** for orchestration, **Delta Lake** storage, and **Unity Catalog** governance.
 
@@ -194,10 +194,6 @@ Task dependency graph of `financial-job`:
 * **NULL-safe division** in the ratios MV — a ratio stays `NULL` whenever the numerator or denominator is `NULL`, or the denominator is `0`; no runtime errors, no `NaN`/`Infinity` values in the output.
 * **NULL-tolerant joins** — all Silver→Gold joins are LEFT joins, so companies are never silently dropped because a fact is missing; missing facts stay `NULL`.
 * **Typed, explicit schemas** — every MV declares its schema; monetary values are `DECIMAL(20,2)` and ratios `DECIMAL(20,6)` for exact financial arithmetic.
-
-**Data quality screenshot:**
-
-> _Placeholder — Lakeflow pipeline event log showing the `valid_balance_sheet` expectation metrics on the latest update._
 
 ---
 
