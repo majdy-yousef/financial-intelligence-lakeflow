@@ -190,7 +190,7 @@ Task dependency graph of `financial-job`:
 
 ## Data Quality and Expectations
 
-* **Lakeflow Expectation on the Gold summary** — `expect_or_drop("valid_balance_sheet", ...)` drops rows where `assets ≠ liabilities + equity` exactly, guaranteeing the Gold layer only contains internally consistent balance sheets. Rows whose three balance-sheet values stem from different filings are intentionally dropped.
+* **Lakeflow Expectation** — `expect_or_drop("valid_balance_sheet", ...)` removes records with an incorrect balance sheet equation. Records with missing balance-sheet values are retained. 
 * **NULL-safe division** in the ratios MV — a ratio stays `NULL` whenever the numerator or denominator is `NULL`, or the denominator is `0`; no runtime errors, no `NaN`/`Infinity` values in the output.
 * **Typed, explicit schemas** — every MV declares its schema; monetary values are `DECIMAL(20,2)` and ratios `DECIMAL(20,6)` for exact financial arithmetic.
 
