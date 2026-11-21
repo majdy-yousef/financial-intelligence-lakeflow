@@ -76,6 +76,7 @@ flowchart TB
     SLIA --> GSUM
     SEQ --> GSUM
 
+    JOB -.-> ING
     JOB -.-> SLV
     JOB -.-> GLD
 ```
