@@ -11,7 +11,7 @@ from sec_client import SECClient
 
 
 def ingest_companies(spark, client=None):
-    """Fetch company_tickers.json and write one row per company to bronze.companies."""
+    """Fetch company_tickers.json and upsert one row per CIK to bronze.companies."""
     if client is None:
         client = SECClient(user_agent=USER_AGENT)
     data = client.get_companies()

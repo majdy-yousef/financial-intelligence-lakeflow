@@ -24,7 +24,7 @@ from sec_client import SECClient, SECClientError
 
 def ingest_frames(spark, client=None):
     """Fetch the frames JSON for every tag/unit/period combination and
-    append one row per combination to bronze.frames.
+    upsert one row per combination into bronze.frames.
 
     Annual (duration) tags are fetched as CY{year}, instant
     (balance-sheet) tags as CY{year}Q4I. The payload column stores the

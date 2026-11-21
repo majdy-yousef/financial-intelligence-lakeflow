@@ -95,6 +95,7 @@ def companies():
         F.col("e.website"),
         F.col("e.investorWebsite"),
         F.col("e.category"),
+        # fiscalYearEnd is "MMDD" (e.g. "1231"); split into month/day ints.
         F.substring(F.col("e.fiscalYearEnd"), 1, 2).cast("int").alias("fiscal_month"),
         F.substring(F.col("e.fiscalYearEnd"), 3, 2).cast("int").alias("fiscal_day"),
         F.col("e.stateOfIncorporation"),
@@ -113,5 +114,5 @@ def companies():
         F.col("e.addresses.business.country"),
         F.col("e.addresses.business.countryCode"),
         F.col("e.phone"),
-    ).dropDuplicates(["cik"])
+    ).dropDuplicates(["cik"])  # cik is PRIMARY KEY: dedup defensively
 

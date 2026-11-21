@@ -19,10 +19,9 @@ def ingest_company_submissions(spark):
 
     The companies to fetch are always taken from bronze.companies.
     """
-    # Build the SEC client with a User-Agent (required by SEC policy).
     client = SECClient(user_agent=USER_AGENT)
 
-    # Always take the CIKs from bronze.companies (task runs after ingest_companies).
+    # Source the CIKs from bronze.companies; this task runs after ingest_companies.
     ciks = [
         row.cik
         for row in spark.table(f"{BRONZE}.companies")
@@ -30,7 +29,7 @@ def ingest_company_submissions(spark):
         .distinct()
         .collect()
     ]
-    
+
     # One ingestion timestamp for every row of this run.
     ingested_at = datetime.now(timezone.utc)
 
@@ -38,15 +37,14 @@ def ingest_company_submissions(spark):
     failures = []  # failed CIKs -> only logged, do not abort the run
     for cik in ciks:
         try:
-            # Fetch the company's submissions JSON from data.sec.gov.
             payload = client.get_company_submissions(cik)
 
         except (requests.HTTPError, SECClientError) as exc:
-            # A single failing CIK no longer aborts the remaining ones.
+            # Log and skip a failing CIK so the rest of the run continues.
             failures.append((int(cik), str(exc)))
             continue
 
-        # One row per company: cik, raw JSON payload, timestamp, source URL.
+        # Tuple order must match SUBMISSIONS_SCHEMA.
         rows.append(
             (
                 int(cik),
@@ -61,7 +59,7 @@ def ingest_company_submissions(spark):
         print(f"Skipped {len(failures)} CIKs after errors: {[f[0] for f in failures]}")
         for cik, err in failures:
             print(f"  cik={cik}: {err}")
-            
+
     # Idempotent upsert into bronze.company_submissions (MERGE on cik).
     return upsert(spark, df, f"{BRONZE}.company_submissions", "t.cik = s.cik")
 

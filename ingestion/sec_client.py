@@ -14,7 +14,6 @@ _TIMEOUT_SEC = 30
 _RETRYABLE_STATUSES = (403, 429, 500, 502, 503)
 
 
-
 class SECClientError(RuntimeError):
     """A SEC EDGAR request failed after retries or returned bad JSON."""
 

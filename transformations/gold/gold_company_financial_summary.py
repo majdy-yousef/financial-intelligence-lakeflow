@@ -1,7 +1,8 @@
 """Gold layer: `company_financial_summary` materialized view.
 
 One row per company (CIK) and fiscal year (2021-2025) with the annual USD
-figures revenue, net_income, assets, liabilities and equity, published as
+figures revenue, net_income, assets, liabilities and equity (each
+DECIMAL(20,2)), published as
 `financial_intelligence.gold.company_financial_summary`. Sources are the
 silver companies dimension and the five IFRS USD fact MVs (silver already
 guarantees USD and fiscal years 2021-2025). Missing facts stay NULL; all
@@ -35,19 +36,14 @@ def _pick_annual_value(table, value_alias, duration):
         )
     else:
         # Instant facts: balance-sheet value at the fiscal-year-end date.
-        # Instant facts: balance-sheet value at the fiscal-year-end date.
         facts = facts.filter(F.col("period_end").isNotNull())
 
-    # Duplicates and amended reports: the latest filing wins
-    # (filed desc, tie-break accn desc, then value desc for determinism).
     # Duplicates and amended reports: the latest filing wins
     # (filed desc, tie-break accn desc, then value desc for determinism).
     latest_filing = Window.partitionBy("cik", "fiscal_year").orderBy(
         F.col("filed").desc(), F.col("accn").desc(), F.col("value").desc()
     )
     return (
-        # Duration facts: only complete fiscal years (300-400 days);
-        # fiscal_year = year(period_end), never the XBRL fy label.
         facts.withColumn("_rank", F.row_number().over(latest_filing))
         .filter(F.col("_rank") == 1)
         .select(
@@ -61,21 +57,21 @@ def _pick_annual_value(table, value_alias, duration):
 @dp.materialized_view(
     name="financial_intelligence.gold.company_financial_summary",
     comment=(
-        "Annual USD financial summary per company and fiscal year (2021-2025): one row "
-        "per (cik, fiscal_year) with revenue, net_income, assets, liabilities, equity. "
-        "Selection: complete fiscal-year durations (300-400 days) or fiscal-year-end "
-        "instants, latest filing wins (filed, accn, value desc), fiscal year from the "
-        "period end (never XBRL fy); missing facts stay NULL."
+        """Annual USD financial summary per company and fiscal year (2021-2025): one row 
+        per (cik, fiscal_year) with revenue, net_income, assets, liabilities, equity. 
+        Selection: complete fiscal-year durations (300-400 days) or fiscal-year-end 
+        instants, latest filing wins (filed, accn, value desc), fiscal year from the 
+        period end (never XBRL fy); missing facts stay NULL."""
     ),
     schema="""
         cik BIGINT,
         company_name STRING,
         fiscal_year INT,
-        revenue DOUBLE,
-        net_income DOUBLE,
-        assets DOUBLE,
-        liabilities DOUBLE,
-        equity DOUBLE
+        revenue DECIMAL(20,2),
+        net_income DECIMAL(20,2),
+        assets DECIMAL(20,2),
+        liabilities DECIMAL(20,2),
+        equity DECIMAL(20,2)
     """,
 )
 @dp.expect_or_drop(
@@ -120,10 +116,12 @@ def company_financial_summary():
             "cik",
             "company_name",
             "fiscal_year",
-            "revenue",
-            "net_income",
-            "assets",
-            "liabilities",
-            "equity",
+            # DECIMAL(20,2) — silver USD values carry at most 2 decimal
+            # places, so this cast is lossless for every value.
+            F.col("revenue").cast("DECIMAL(20,2)"),
+            F.col("net_income").cast("DECIMAL(20,2)"),
+            F.col("assets").cast("DECIMAL(20,2)"),
+            F.col("liabilities").cast("DECIMAL(20,2)"),
+            F.col("equity").cast("DECIMAL(20,2)"),
         )
     )

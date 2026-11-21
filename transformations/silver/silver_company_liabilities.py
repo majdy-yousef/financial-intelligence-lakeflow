@@ -85,6 +85,7 @@ _FACTS_SCHEMA = StructType(
     """,
 )
 def company_liabilities():
+    # Cheap pre-filter: skip from_json on payloads without any IFRS facts.
     bronze = spark.read.table("financial_intelligence.bronze.company_facts").filter(
         F.col("payload").contains('"ifrs-full"')
     )
