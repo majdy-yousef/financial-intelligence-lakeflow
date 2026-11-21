@@ -26,12 +26,58 @@ Current scope (verifiable in the data): ~10,000 SEC-registered companies in the 
 The pipeline follows the medallion architecture. Raw SEC payloads land in Bronze as plain JSON strings; Silver extracts typed facts from those payloads; Gold consolidates them into analytics-ready tables.
 
 ```mermaid
-flowchart LR
-    SEC["SEC EDGAR REST API"] --> ING["Ingestion modules<br/>(Python / PySpark)"]
-    ING --> BRZ["Bronze<br/>raw JSON payloads<br/>(4 tables)"]
-    BRZ --> SLV["Silver<br/>7 materialized views<br/>(Lakeflow pipeline)"]
-    SLV --> G["gold.company_financial_summary"]
-    G --> R["gold.company_financial_ratios"]
+flowchart TB
+    SEC["SEC EDGAR API"]
+    JOB["Lakeflow Job"]
+
+    subgraph ING["Data Ingestion - Python"]
+        CLIENT["SEC API Client"] --> SCRIPTS["Ingestion Scripts"]
+    end
+
+    subgraph BRZ["Bronze Layer - Delta Lake"]
+        FRAMES["frames"]
+        BCOM["companies"]
+        BSUB["company_submissions"]
+        BFACT["company_facts"]
+    end
+
+    subgraph SLV["Silver Layer - Lakeflow"]
+        STICK["company_tickers"]
+        SCOMP["companies"]
+        SREV["company_revenue"]
+        SNI["company_net_income"]
+        SAS["company_assets"]
+        SLIA["company_liabilities"]
+        SEQ["company_equity"]
+    end
+
+    subgraph GLD["Gold Layer - Analytics"]
+        GSUM["company_financial_summary"] --> GRAT["company_financial_ratios"]
+    end
+
+    SEC -.-> CLIENT
+    SCRIPTS --> FRAMES
+    SCRIPTS --> BCOM
+    SCRIPTS --> BSUB
+    SCRIPTS --> BFACT
+
+    BSUB --> STICK
+    BSUB --> SCOMP
+    BFACT --> SREV
+    BFACT --> SNI
+    BFACT --> SAS
+    BFACT --> SLIA
+    BFACT --> SEQ
+
+    SCOMP --> GSUM
+    SREV --> GSUM
+    SNI --> GSUM
+    SAS --> GSUM
+    SLIA --> GSUM
+    SEQ --> GSUM
+
+    JOB -.-> SLV
+    JOB -.-> GLD
 ```
 
 **Declarative pipeline dependency graph (Lakeflow UI):**
